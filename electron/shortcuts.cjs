@@ -65,7 +65,7 @@ class ShortcutManager {
   }
   configure(bindings) {
     const next = new Map(
-      bindings.map(([key, target]) => [normalizeShortcut(key), target]).filter(([key]) => key),
+      bindings.map(([key, target]) => [normalizeShortcut(key).replace('CommandOrControl', process.platform==='darwin'?'Command':'Control'), target]).filter(([key]) => key),
     );
     const added = [];
     try {
