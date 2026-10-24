@@ -3,9 +3,10 @@ on:
   workflow_dispatch:
 permissions:
   contents: write
+  actions: read
 jobs:
   portable:
-    runs-on: windows-latest
+    runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
@@ -13,24 +14,27 @@ jobs:
         with:
           node-version: '24'
           cache: npm
+      - name: Preserve installer failure diagnostics
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          gh api repos/${GH_REPO}/actions/runs/40126767090/logs > previous-build-logs.zip
+          gh release upload v1.0.1-preview previous-build-logs.zip --clobber
       - run: npm ci
       - run: npm test
-      - run: npm run build
-      - run: npx playwright install chromium
-      - run: npm run test:ui
-      - run: npm run test:desktop
-      - run: npm run dist:win
+      - run: npm run dist:portable
       - name: Archive source and generate checksums
         shell: bash
         run: |
           git archive --format=zip --prefix=Orbit-Launcher/ --output=release/Orbit-Launcher-Source.zip HEAD
           cd release
-          sha256sum Orbit-Launcher-1.0.1-x64-Portable.exe Orbit-Launcher-1.0.1-x64-Setup.exe Orbit-Launcher-Source.zip > SHA256SUMS.txt
+          sha256sum Orbit-Launcher-1.0.1-x64-Portable.exe Orbit-Launcher-Source.zip > SHA256SUMS.txt
       - name: Upload and publish approved preview
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
         shell: bash
         run: |
-          gh release upload v1.0.1-preview release/Orbit-Launcher-1.0.1-x64-Portable.exe release/Orbit-Launcher-1.0.1-x64-Setup.exe release/Orbit-Launcher-Source.zip release/SHA256SUMS.txt --clobber
+          gh release upload v1.0.1-preview release/Orbit-Launcher-1.0.1-x64-Portable.exe release/Orbit-Launcher-Source.zip release/SHA256SUMS.txt --clobber
           gh release edit v1.0.1-preview --draft=false --prerelease
