@@ -1,0 +1,30 @@
+name: Publish portable preview
+on:
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  portable:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci
+      - run: npm test
+      - run: npm run dist:portable
+      - name: Archive source and generate checksums
+        run: |
+          git archive --format=zip --prefix=Orbit-Launcher/ --output=release/Orbit-Launcher-Source.zip HEAD
+          cd release
+          sha256sum Orbit-Launcher-1.0.0-x64-Portable.exe Orbit-Launcher-Source.zip > SHA256SUMS.txt
+      - name: Upload and publish approved preview
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          gh release upload v1.0.0-preview release/Orbit-Launcher-1.0.0-x64-Portable.exe release/Orbit-Launcher-Source.zip release/SHA256SUMS.txt --clobber
+          gh release edit v1.0.0-preview --draft=false --prerelease
