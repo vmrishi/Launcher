@@ -227,3 +227,54 @@ test('the real process runner can start a process without interpreting arguments
   }
 });
 module.exports = { config, app };
+
+test('shortcut aliases and spaced combinations normalize to valid accelerators', () => {
+  const { normalizeShortcut } = require('../electron/shortcuts.cjs');
+  assert.equal(normalizeShortcut('ctrl + shift + space'), 'Control+Shift+Space');
+  assert.equal(normalizeShortcut('Win + a'), 'Super+A');
+  for (const invalid of ['Ctrl', 'Shift+Alt', 'Ctrl++A', 'Ctrl+Nonsense', 'A'])
+    assert.throws(() => normalizeShortcut(invalid));
+});
+test('shortcut changes are transactional and unrelated settings never unregister active keys', () => {
+  const { ShortcutManager } = require('../electron/shortcuts.cjs');
+  const handlers = new Map();
+  let registrations = 0;
+  let fired;
+  const api = {
+    register: (key, fn) => {
+      registrations++;
+      if (key === 'Alt+F2') return false;
+      handlers.set(key, fn);
+      return true;
+    },
+    unregister: (key) => handlers.delete(key),
+  };
+  const manager = new ShortcutManager(api, (target) => (fired = target));
+  manager.configure([['Ctrl + Shift + Space', 'donut']]);
+  handlers.get('Control+Shift+Space')();
+  assert.equal(fired, 'donut');
+  manager.configure([['Control+Shift+Space', 'donut']]);
+  assert.equal(registrations, 1);
+  assert.throws(() =>
+    manager.configure([
+      ['Alt+F1', 'app'],
+      ['Alt+F2', 'donut'],
+    ]),
+  );
+  assert.equal(handlers.has('Control+Shift+Space'), true);
+  assert.equal(handlers.has('Alt+F1'), false);
+  manager.configure([['Alt+F1', 'donut']]);
+  handlers.get('Alt+F1')();
+  assert.equal(fired, 'donut');
+  assert.equal(handlers.has('Control+Shift+Space'), false);
+});
+test('old settings migrate font and slice options without losing user customizations', () => {
+  const c = config();
+  const migrated = validateConfig(c);
+  assert.equal(migrated.settings.uiFontScale, 118);
+  assert.equal(migrated.settings.donutFontSize, 16);
+  assert.equal(migrated.settings.sliceRadius, 0);
+  assert.equal(migrated.entries[0].id, c.entries[0].id);
+  c.settings.donutFontSize = 25;
+  assert.throws(() => validateConfig(c));
+});

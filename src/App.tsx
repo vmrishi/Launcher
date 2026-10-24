@@ -1,3 +1,4 @@
+import ShortcutField from './components/ShortcutField';
 import { useEffect, useRef, useState } from 'react';
 import {
   Home,
@@ -168,6 +169,10 @@ export default function App() {
     document.documentElement.dataset.style = s.style;
     document.documentElement.style.setProperty('--accent', s.accent);
     document.documentElement.style.setProperty('--radius', `${s.radius}px`);
+    document.documentElement.style.setProperty(
+      '--ui-font-scale',
+      String((s.uiFontScale ?? 118) / 100),
+    );
     document.documentElement.dataset.motion = s.motion ? 'on' : 'off';
     document.body.classList.toggle('radial-body', radial);
     return () => mq.removeEventListener('change', theme);
@@ -545,7 +550,7 @@ export default function App() {
             <ArrowUpRight size={15} />
           </button>
           <div className="version">
-            <span>Orbit v1.0.0</span>
+            <span>Orbit v1.0.1</span>
             <span>Made for your desktop</span>
           </div>
         </div>
@@ -1050,6 +1055,22 @@ export default function App() {
                   </div>
                   <div className="card appearance-card">
                     <h3>Donut appearance</h3>
+                    <Range
+                      label="Donut font size"
+                      min={12}
+                      max={24}
+                      value={config.settings.donutFontSize}
+                      suffix=" px"
+                      onChange={(donutFontSize) => setting({ donutFontSize })}
+                    />
+                    <Range
+                      label="Slice corner radius"
+                      min={0}
+                      max={20}
+                      value={config.settings.sliceRadius}
+                      suffix=" px"
+                      onChange={(sliceRadius) => setting({ sliceRadius })}
+                    />
                     <label className="field">
                       Show on each slice
                       <div className="segmented">
@@ -1586,6 +1607,22 @@ export default function App() {
                 </section>
                 <section className="card settings-card">
                   <Range
+                    label="UI text size"
+                    min={100}
+                    max={160}
+                    value={config.settings.uiFontScale}
+                    suffix="%"
+                    onChange={(uiFontScale) => setting({ uiFontScale })}
+                  />
+                  <Range
+                    label="Donut font size"
+                    min={12}
+                    max={24}
+                    value={config.settings.donutFontSize}
+                    suffix=" px"
+                    onChange={(donutFontSize) => setting({ donutFontSize })}
+                  />
+                  <Range
                     label="Corner softness"
                     min={0}
                     max={28}
@@ -1692,7 +1729,7 @@ export default function App() {
                   <br />
                   and everyday routines together in one customizable donut.
                 </p>
-                <span className="pill">Version 1.0.0 · Windows 10 / 11 · x64</span>
+                <span className="pill">Version 1.0.1 · Windows 10 / 11 · x64</span>
               </div>
               <div className="card settings-card">
                 <h2>Inspired by Filee. Built for launching.</h2>
@@ -1978,11 +2015,7 @@ function ShortcutInput({
       <label className="field">
         {label}
         <div className="input-action">
-          <input
-            value={draft}
-            onChange={(e) => setDraft(e.target.value)}
-            placeholder="Control+Shift+Space"
-          />
+          <ShortcutField value={draft} onChange={setDraft} />
           <button className="button primary" type="submit">
             Apply
           </button>

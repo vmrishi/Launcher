@@ -23,7 +23,9 @@ const { _electron } = require('@playwright/test');
     await application.firstWindow();
     let win;
     for (let attempt = 0; attempt < 100; attempt++) {
-      win = application.windows().find((p) => p.url().startsWith('file:') && !p.url().includes('donut=1'));
+      win = application
+        .windows()
+        .find((p) => p.url().startsWith('file:') && !p.url().includes('donut=1'));
       if (win) break;
       await new Promise((resolve) => setTimeout(resolve, 50));
     }
@@ -43,6 +45,46 @@ const { _electron } = require('@playwright/test');
       assert.equal(p.sandbox, true);
       assert.equal(p.isolated, true);
       assert.equal(p.node, false);
+    }
+
+    // Send an OS-level hotkey, rather than calling the donut IPC directly.
+    const { execFileSync } = require('node:child_process');
+    if (process.platform === 'linux')
+      execFileSync('python', [
+        '-c',
+        `
+import ctypes,ctypes.util,time
+x=ctypes.CDLL(ctypes.util.find_library('X11'));t=ctypes.CDLL(ctypes.util.find_library('Xtst'))
+x.XOpenDisplay.restype=ctypes.c_void_p;x.XStringToKeysym.argtypes=[ctypes.c_char_p];x.XStringToKeysym.restype=ctypes.c_ulong
+x.XKeysymToKeycode.argtypes=[ctypes.c_void_p,ctypes.c_ulong];x.XKeysymToKeycode.restype=ctypes.c_uint
+x.XFlush.argtypes=[ctypes.c_void_p];t.XTestFakeKeyEvent.argtypes=[ctypes.c_void_p,ctypes.c_uint,ctypes.c_int,ctypes.c_ulong]
+d=x.XOpenDisplay(None)
+keys=[x.XKeysymToKeycode(d,x.XStringToKeysym(k)) for k in [b'Control_L',b'Shift_L',b'space']]
+for k in keys:t.XTestFakeKeyEvent(d,k,1,0)
+for k in reversed(keys):t.XTestFakeKeyEvent(d,k,0,0)
+x.XFlush(d);time.sleep(.2)
+`,
+      ]);
+    else if (process.platform === 'win32')
+      execFileSync('powershell.exe', [
+        '-NoProfile',
+        '-NonInteractive',
+        '-Command',
+        "$keys=New-Object -ComObject WScript.Shell; $keys.SendKeys('^+ ')",
+      ]);
+    if (['linux', 'win32'].includes(process.platform)) {
+      let visible = false;
+      for (let i = 0; i < 40; i++) {
+        visible = await application.evaluate(({ BrowserWindow }) =>
+          BrowserWindow.getAllWindows()
+            .find((w) => w.webContents.getURL().includes('donut=1'))
+            .isVisible(),
+        );
+        if (visible) break;
+        await new Promise((r) => setTimeout(r, 50));
+      }
+      assert.equal(visible, true, 'OS shortcut opens the floating launcher');
+      await win.evaluate(() => window.launcher.hideDonut());
     }
     let config = await win.evaluate(() => window.launcher.load());
     assert.equal(config.entries.length, 8);
@@ -99,6 +141,13 @@ const { _electron } = require('@playwright/test');
     assert.ok(donut, 'Floating donut window exists');
     await donut.getByRole('button', { name: 'Launch File Explorer', exact: true }).waitFor();
     assert.equal(await donut.locator('html').getAttribute('data-theme'), 'dark');
+    const transparent = await donut.evaluate(() =>
+      [document.documentElement, document.body, document.getElementById('root')].every(
+        (el) => getComputedStyle(el).backgroundColor === 'rgba(0, 0, 0, 0)',
+      ),
+    );
+    assert.equal(transparent, true, 'All floating-window root surfaces are transparent');
+
     await donut.evaluate(() => window.launcher.hideDonut());
     const state = await application.evaluate(({ BrowserWindow }) => ({
       main: BrowserWindow.getAllWindows()
@@ -121,7 +170,7 @@ const { _electron } = require('@playwright/test');
     const outcome = await application.evaluate(({ globalShortcut }) => {
       const original = globalShortcut.register;
       globalShortcut.register = (key, callback) =>
-        key === 'Control+Alt+9' ? false : original.call(globalShortcut, key, callback);
+        key === 'Alt+Control+9' ? false : original.call(globalShortcut, key, callback);
       return true;
     });
     assert.equal(outcome, true);

@@ -6,12 +6,12 @@ function point(radius: number, angle: number) {
   const a = (angle * Math.PI) / 180;
   return [220 + radius * Math.cos(a), 220 + radius * Math.sin(a)];
 }
-function slice(start: number, end: number) {
-  const a = point(204, start),
-    b = point(204, end),
-    c = point(91, end),
-    d = point(91, start);
-  return `M ${a} A 204 204 0 0 1 ${b} L ${c} A 91 91 0 0 0 ${d} Z`;
+function slice(start: number, end: number, r = 0) {
+  if (!r)
+    return `M ${point(204, start)} A 204 204 0 0 1 ${point(204, end)} L ${point(91, end)} A 91 91 0 0 0 ${point(91, start)} Z`;
+  const outer = ((r / 204) * 180) / Math.PI,
+    inner = ((r / 91) * 180) / Math.PI;
+  return `M ${point(204, start + outer)} A 204 204 0 0 1 ${point(204, end - outer)} Q ${point(204, end)} ${point(204 - r, end)} L ${point(91 + r, end)} Q ${point(91, end)} ${point(91, end - inner)} A 91 91 0 0 0 ${point(91, start + inner)} Q ${point(91, start)} ${point(91 + r, start)} L ${point(204 - r, start)} Q ${point(204, start)} ${point(204, start + outer)} Z`;
 }
 export default function Donut({
   entries,
@@ -59,7 +59,12 @@ export default function Donut({
           viewBox="0 0 440 440"
           className="donut"
           aria-label={`${profile.name} donut toolbar`}
-          style={{ '--donut-opacity': settings.opacity / 100 } as React.CSSProperties}
+          style={
+            {
+              '--donut-opacity': settings.opacity / 100,
+              '--donut-font-size': `${settings.donutFontSize ?? 16}px`,
+            } as React.CSSProperties
+          }
         >
           <defs>
             <filter id={`shadow-${small ? 's' : 'l'}`} x="-30%" y="-30%" width="160%" height="160%">
@@ -113,7 +118,7 @@ export default function Donut({
                     }
                   }}
                 >
-                  <path d={slice(start, end)} />
+                  <path d={slice(start, end, settings.sliceRadius ?? 0)} />
                   <foreignObject
                     x={x - 48}
                     y={y - 40}

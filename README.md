@@ -54,8 +54,8 @@ npm run dist:win
 
 Output in `release/`:
 
-- `Orbit-Launcher-1.0.0-x64-Setup.exe`: install/uninstall wizard, Start Menu and desktop shortcut, selectable installation folder.
-- `Orbit-Launcher-1.0.0-x64-Portable.exe`: self-extracting portable executable, no install wizard.
+- `Orbit-Launcher-1.0.1-x64-Setup.exe`: install/uninstall wizard, Start Menu and desktop shortcut, selectable installation folder.
+- `Orbit-Launcher-1.0.1-x64-Portable.exe`: self-extracting portable executable, no install wizard.
 - `win-unpacked/`: unpacked runnable application.
 
 Portable refers to deployment: **settings still live in the Windows user profile**, not beside the executable. Both editions use the same application ID and enforce a single running instance.
@@ -119,3 +119,11 @@ docs/                    Design analysis, validation, source references
 ```
 
 Development architecture and extension guidance: [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md). License: [MIT](LICENSE). Credits: [third-party notices](THIRD-PARTY-NOTICES.md).
+
+## Version 1.0.1 fixes
+
+In Shortcuts, choose **Record keys**, press the desired combination, then **Apply**. Typed shortcuts such as `Ctrl + Alt + L` also work. Failed assignments preserve the working shortcut; unrelated theme/layout changes no longer unregister hotkeys. The tray menu remains available as an alternative.
+
+Theme → **UI text size** controls all settings text (100–160%, default 118%). **Donut font size** independently controls donut labels (12–24). Donut toolbar → **Slice corner radius** controls rounding (0–20). These options save automatically and migrate from 1.0.0 without deleting your library. The floating window now clears the HTML root, body, and app background so the desktop shows through around the donut.
+
+Quit the previous Orbit instance from its tray menu before running the new executable; the single-instance lock otherwise focuses the old running version.

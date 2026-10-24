@@ -1,3 +1,4 @@
+import ShortcutField from './ShortcutField';
 import { useState } from 'react';
 import {
   FolderOpen,
@@ -369,11 +370,7 @@ export default function EntryEditor({
           </label>
           <label className="field">
             Global shortcut
-            <input
-              value={value.hotkey}
-              onChange={(e) => update({ hotkey: e.target.value })}
-              placeholder="Control+Alt+1"
-            />
+            <ShortcutField value={value.hotkey} onChange={(hotkey) => update({ hotkey })} />
             <span className="hint">Optional · leave empty to disable</span>
           </label>
         </div>

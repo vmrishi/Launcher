@@ -12,7 +12,11 @@ export async function load(): Promise<Config> {
   }
   try {
     const raw = localStorage.getItem(key);
-    if (raw) return JSON.parse(raw);
+    if (raw) {
+      const c = JSON.parse(raw);
+      c.settings = { uiFontScale: 118, donutFontSize: 16, sliceRadius: 0, ...c.settings };
+      return c;
+    }
   } catch {
     /* Fall back to fresh preview. */
   }

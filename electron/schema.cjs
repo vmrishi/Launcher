@@ -31,14 +31,9 @@ function list(value, max) {
     fail(`Expected a list with at most ${max} items.`);
   return value;
 }
+const { normalizeShortcut } = require('./shortcuts.cjs');
 function hotkey(value) {
-  const key = string(value, 'shortcut', 80);
-  if (
-    key &&
-    (!/^[A-Za-z0-9+]+$/.test(key) || !/(Control|Ctrl|Alt|Shift|Command|Super|Meta)/i.test(key))
-  )
-    fail('Use a shortcut with a modifier, such as Control+Shift+Space.');
-  return key;
+  return normalizeShortcut(value);
 }
 function canonicalShortcut(key) {
   return key
@@ -136,6 +131,9 @@ function validateConfig(value) {
     style: choice(s.style, ['soft', 'material']),
     accent: HEX.test(s.accent) ? s.accent : fail('Invalid accent color.'),
     radius: number(s.radius, 0, 28),
+    uiFontScale: number(s.uiFontScale ?? 118, 100, 160),
+    donutFontSize: number(s.donutFontSize ?? 16, 12, 24),
+    sliceRadius: number(s.sliceRadius ?? 0, 0, 20),
     opacity: number(s.opacity, 30, 100),
     motion: bool(s.motion),
     display: choice(s.display, ['both', 'icon', 'name']),

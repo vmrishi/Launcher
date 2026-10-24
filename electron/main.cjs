@@ -17,6 +17,11 @@ const { randomUUID } = require('node:crypto');
 const { Store } = require('./store.cjs');
 const { validateConfig } = require('./schema.cjs');
 const { launchEntry } = require('./launcher.cjs');
+const { ShortcutManager } = require('./shortcuts.cjs');
+let shortcutManager,
+  capturing = false,
+  openedAt = 0,
+  lastToggle = 0;
 const dev = process.argv.includes('--dev');
 if (!app.isPackaged && process.env.ORBIT_TEST_USER_DATA)
   app.setPath('userData', path.resolve(process.env.ORBIT_TEST_USER_DATA));
@@ -50,35 +55,36 @@ function showDonut() {
     x: Math.round(Math.max(area.x, Math.min(cursor.x - size / 2, area.x + area.width - size))),
     y: Math.round(Math.max(area.y, Math.min(cursor.y - size / 2, area.y + area.height - size))),
   });
+  openedAt = Date.now();
   donut.show();
   donut.focus();
   donut.webContents.send('donut:opened');
 }
 function registerShortcuts(config) {
-  globalShortcut.unregisterAll();
-  try {
-    const hotkey = config?.settings.hotkey ?? fallback.hotkey;
-    if (
-      hotkey &&
-      !globalShortcut.register(hotkey, () => (donut.isVisible() ? donut.hide() : showDonut()))
-    )
-      throw new Error(`Shortcut ${hotkey} is already in use. Choose another shortcut.`);
-    for (const entry of config?.entries ?? [])
-      if (
-        entry.hotkey &&
-        !globalShortcut.register(
-          entry.hotkey,
-          () =>
-            void performLaunch(entry.id).catch((error) =>
-              dialog.showErrorBox('Could not launch application', error.message),
-            ),
-        )
-      )
-        throw new Error(`Shortcut ${entry.hotkey} for ${entry.name} is already in use.`);
-  } catch (error) {
-    globalShortcut.unregisterAll();
-    throw error;
-  }
+  if (!shortcutManager)
+    shortcutManager = new ShortcutManager(globalShortcut, (target) => {
+      if (target === 'donut') {
+        if (Date.now() - lastToggle < 400) return;
+        lastToggle = Date.now();
+        donut.isVisible() ? donut.hide() : showDonut();
+      } else if (target)
+        void performLaunch(target).catch((error) =>
+          dialog.showErrorBox('Could not launch application', error.message),
+        );
+    });
+  shortcutManager.configure(
+    capturing
+      ? []
+      : [
+          [config?.settings.hotkey ?? fallback.hotkey, 'donut'],
+          ...(config?.entries ?? []).filter((a) => a.hotkey).map((a) => [a.hotkey, a.id]),
+        ],
+  );
+}
+function endCapture() {
+  if (!capturing) return;
+  capturing = false;
+  registerShortcuts(store.value);
 }
 function trayMenu() {
   tray?.setContextMenu(
@@ -117,7 +123,7 @@ function commit(value) {
     if (process.platform === 'win32')
       app.setLoginItemSettings({
         openAtLogin: clean.settings.launchAtLogin,
-        path: app.getPath('exe'),
+        path: process.env.PORTABLE_EXECUTABLE_FILE || app.getPath('exe'),
         args: [],
       });
     store.save(clean);
@@ -127,7 +133,7 @@ function commit(value) {
       if (process.platform === 'win32')
         app.setLoginItemSettings({
           openAtLogin: previous?.settings.launchAtLogin ?? false,
-          path: app.getPath('exe'),
+          path: process.env.PORTABLE_EXECUTABLE_FILE || app.getPath('exe'),
           args: [],
         });
     } catch {}
@@ -197,9 +203,16 @@ function createWindow(radial = false) {
     });
   if (radial) {
     win.on('blur', () => {
-      if (settings().autoHide) win.hide();
+      if (settings().autoHide && Date.now() - openedAt > 600) win.hide();
     });
   } else {
+    win.on('blur', () => {
+      try {
+        endCapture();
+      } catch (error) {
+        dialog.showErrorBox('Shortcut unavailable', error.message);
+      }
+    });
     win.once('ready-to-show', () => {
       if (!settings().startMinimized) win.show();
     });
@@ -240,6 +253,11 @@ async function describeFile(target) {
   return { name, target, icon, type: info.isDirectory() ? 'folder' : 'app' };
 }
 function setupIPC() {
+  handle('shortcut:capture', (active) => {
+    if (typeof active !== 'boolean') throw Error('Invalid capture state.');
+    capturing = active;
+    registerShortcuts(store.value);
+  });
   handle('config:load', () => store.value);
   handle('config:save', commit);
   handle('launch', (id) => {
@@ -404,9 +422,14 @@ else {
       trayMenu();
       setupIPC();
       try {
+        registerShortcuts({settings:{hotkey:store.value?.settings.hotkey??fallback.hotkey},entries:[]});
         registerShortcuts(store.value);
       } catch (error) {
-        dialog.showErrorBox('Shortcut unavailable', error.message);
+        main.show();
+        dialog.showErrorBox(
+          'Shortcut unavailable',
+          error.message + ' Open Shortcuts in settings and assign a different key.',
+        );
       }
     })
     .catch((error) => {

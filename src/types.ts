@@ -25,6 +25,9 @@ export interface Settings {
   style: 'soft' | 'material';
   accent: string;
   radius: number;
+  uiFontScale: number;
+  donutFontSize: number;
+  sliceRadius: number;
   opacity: number;
   motion: boolean;
   display: 'both' | 'icon' | 'name';
@@ -67,6 +70,7 @@ export interface Discovery {
 }
 export interface DesktopAPI {
   desktop: true;
+  captureShortcut(active: boolean): Promise<void>;
   clearHistory(): Promise<void>;
   load(): Promise<Config>;
   save(config: Config): Promise<Config>;

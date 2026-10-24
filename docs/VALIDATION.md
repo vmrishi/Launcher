@@ -54,3 +54,7 @@ Then check on an actual Windows 10/11 desktop:
 10. Configure Windows code signing and validate the final signed artifacts before broad distribution.
 
 No GitHub release was published, no source was pushed, and no Windows-specific behavior is represented as tested on this Linux host. The full source and a Windows build workflow are included for that next stage.
+
+## 1.0.1 regression validation
+
+Local checks: 13 core tests and 11 browser integration tests pass. The Electron smoke also injects an actual OS keyboard shortcut, verifies that it opens the floating window, checks transparent HTML/body/root backgrounds, and verifies shortcut rollback. The Windows publishing workflow repeats the tests before producing the portable and NSIS packages. Windows desktop compositing across GPU/driver configurations still requires checking on the user's own machine.

@@ -1,6 +1,7 @@
 const { contextBridge, ipcRenderer, webUtils } = require('electron');
 contextBridge.exposeInMainWorld('launcher', {
   desktop: true,
+  captureShortcut: (active) => ipcRenderer.invoke('shortcut:capture', active),
   clearHistory: () => ipcRenderer.invoke('history:clear'),
   load: () => ipcRenderer.invoke('config:load'),
   save: (config) => ipcRenderer.invoke('config:save', config),

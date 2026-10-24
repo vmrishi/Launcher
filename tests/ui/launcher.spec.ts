@@ -224,3 +224,53 @@ test('application editor accepts a dropped website link and traps focus', async 
   await dialog.getByRole('button', { name: 'Save changes' }).click();
   await expect(page.getByRole('button', { name: 'Add application', exact: true })).toBeVisible();
 });
+
+test('shortcut recorder captures keys and independent font and slice settings persist', async ({
+  page,
+}) => {
+  await page
+    .getByRole('navigation')
+    .getByRole('button', { name: 'Shortcuts', exact: true })
+    .click();
+  await page.getByRole('button', { name: 'Record keys', exact: true }).click();
+  await page.keyboard.press('Control+Alt+L');
+  await expect(page.locator('.shortcut-input input')).toHaveValue('Control+Alt+L');
+  await page.getByRole('button', { name: 'Apply', exact: true }).click();
+  await page.getByRole('navigation').getByRole('button', { name: 'Theme', exact: true }).click();
+  await page.getByLabel('UI text size').fill('130');
+  await page.getByLabel('UI text size').dispatchEvent('change');
+  await page.getByLabel('Donut font size').fill('20');
+  await page.getByLabel('Donut font size').dispatchEvent('change');
+  await page
+    .getByRole('navigation')
+    .getByRole('button', { name: 'Donut toolbar', exact: true })
+    .click();
+  const before = await page.locator('.donut-slice path').first().getAttribute('d');
+  await page.getByLabel('Slice corner radius').fill('12');
+  await page.getByLabel('Slice corner radius').dispatchEvent('change');
+  await expect
+    .poll(() => page.locator('.donut-slice path').first().getAttribute('d'))
+    .not.toBe(before);
+  await page.reload();
+  const c = await page.evaluate(() =>
+    JSON.parse(localStorage.getItem('orbit-launcher-preview-v1')!),
+  );
+  expect(c.settings).toMatchObject({
+    uiFontScale: 130,
+    donutFontSize: 20,
+    sliceRadius: 12,
+    hotkey: 'Control+Alt+L',
+  });
+});
+
+test('floating donut has transparent HTML body and root surfaces', async ({ page }) => {
+  await page.goto('/?donut=1');
+  await expect(page.locator('.radial-window')).toBeVisible();
+  expect(
+    await page.evaluate(() =>
+      [document.documentElement, document.body, document.getElementById('root')!].map(
+        (el) => getComputedStyle(el).backgroundColor,
+      ),
+    ),
+  ).toEqual(['rgba(0, 0, 0, 0)', 'rgba(0, 0, 0, 0)', 'rgba(0, 0, 0, 0)']);
+});
