@@ -1,0 +1,87 @@
+{
+  "name": "orbit-launcher",
+  "version": "1.0.0",
+  "private": true,
+  "description": "A customizable Windows donut launcher inspired by Filee",
+  "author": "Launcher contributors",
+  "license": "MIT",
+  "main": "electron/main.cjs",
+  "scripts": {
+    "dev": "vite --host 0.0.0.0",
+    "desktop:dev": "concurrently -k \"vite --host 127.0.0.1\" \"wait-on http://127.0.0.1:5173 && electron . --dev\"",
+    "build": "tsc -b && vite build",
+    "start": "electron .",
+    "test": "node --test tests/*.test.cjs",
+    "test:ui": "playwright test",
+    "check": "npm run test && npm run build && npm run test:ui",
+    "dist:win": "npm run build && electron-builder --win --x64",
+    "pack": "npm run build && electron-builder --dir",
+    "test:desktop": "node scripts/desktop-smoke.cjs",
+    "dist:portable": "npm run build && electron-builder --win portable --x64"
+  },
+  "dependencies": {
+    "lucide-react": "^0.468.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.58.0",
+    "@types/node": "^22.10.0",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "@vitejs/plugin-react": "^4.7.0",
+    "concurrently": "^9.1.0",
+    "electron": "^40.0.0",
+    "electron-builder": "^26.0.0",
+    "typescript": "~5.7.2",
+    "vite": "^6.4.0",
+    "wait-on": "^8.0.0"
+  },
+  "build": {
+    "appId": "app.orbit.launcher",
+    "productName": "Orbit Launcher",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "dist/**/*",
+      "electron/**/*",
+      "package.json",
+      "LICENSE",
+      "THIRD-PARTY-NOTICES.md",
+      "docs/reference/FILEE-LICENSE",
+      "docs/licenses/**/*"
+    ],
+    "asar": true,
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "portable",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "public/orbit.ico",
+      "signExecutable": false
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "runAfterFinish": true,
+      "artifactName": "Orbit-Launcher-${version}-${arch}-Setup.${ext}"
+    },
+    "artifactName": "Orbit-Launcher-${version}-${arch}.${ext}",
+    "portable": {
+      "artifactName": "Orbit-Launcher-${version}-${arch}-Portable.${ext}"
+    }
+  }
+}
