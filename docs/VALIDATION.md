@@ -58,3 +58,7 @@ No GitHub release was published, no source was pushed, and no Windows-specific b
 ## 1.0.1 regression validation
 
 Local checks: 13 core tests and 11 browser integration tests pass. The Electron smoke also injects an actual OS keyboard shortcut, verifies that it opens the floating window, checks transparent HTML/body/root backgrounds, and verifies shortcut rollback. The Windows publishing workflow repeats the tests before producing the portable and NSIS packages. Windows desktop compositing across GPU/driver configurations still requires checking on the user's own machine.
+
+## 1.0.2 regression validation
+
+21 core/update tests and 16 browser integration tests cover update metadata selection, encrypted credential storage, private access errors, checksum validation, rejecting corrupted downloads, cancellation of automatic installation, library reordering and deletion, dragging onto empty slices, pointer dragging outside labels, profile-selector visibility, dark dropdown colors, branding, and update-toggle persistence. Native smoke checks also cover the update IPC status and live profile visibility synchronization. No test performs an actual installed-app replacement against a future GitHub release; that remains a manual upgrade/restart check.

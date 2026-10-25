@@ -10,9 +10,82 @@ const {
   Menu,
   nativeImage,
   screen,
+  safeStorage,
 } = require('electron');
 const path = require('node:path');
 const fs = require('node:fs/promises');
+const { spawn } = require('node:child_process');
+const { Updates } = require('./updates.cjs');
+let updates, updateTimer;
+function updatePreferences() {
+  if (!updates) return;
+  clearInterval(updateTimer);
+  if (!settings().autoCheckUpdates) return;
+  const run = async () => {
+    await updates.check();
+    if (
+      settings().autoCheckUpdates &&
+      settings().autoInstallUpdates &&
+      updates.status().state === 'available'
+    )
+      await updates.install(true);
+  };
+  void run();
+  updateTimer = setInterval(() => void run(), 6 * 60 * 60 * 1000);
+  updateTimer.unref();
+}
+async function installUpdate(file) {
+  const portable = process.env.PORTABLE_EXECUTABLE_FILE;
+  let command = file,
+    args = ['/S'];
+  if (portable) {
+    const script = path.join(app.getPath('userData'), 'updates', 'apply-portable.ps1');
+    await fs.writeFile(
+      script,
+      `param([int]$OldPid,[string]$Source,[string]$Destination)
+$ErrorActionPreference='Stop'
+Wait-Process -Id $OldPid -ErrorAction SilentlyContinue
+try {
+ Copy-Item -LiteralPath $Destination -Destination ($Destination+'.previous') -Force
+ Copy-Item -LiteralPath $Source -Destination ($Destination+'.updating') -Force
+ Move-Item -LiteralPath ($Destination+'.updating') -Destination $Destination -Force
+ Start-Process -FilePath $Destination
+} catch { $_ | Out-File -FilePath ($Source+'.error.txt') }
+`,
+    );
+    command = 'powershell.exe';
+    args = [
+      '-NoProfile',
+      '-NonInteractive',
+      '-ExecutionPolicy',
+      'RemoteSigned',
+      '-File',
+      script,
+      '-OldPid',
+      String(process.pid),
+      '-Source',
+      file,
+      '-Destination',
+      portable,
+    ];
+  }
+  await new Promise((resolve, reject) => {
+    const child = spawn(command, args, {
+      detached: true,
+      stdio: 'ignore',
+      windowsHide: true,
+      shell: false,
+    });
+    child.once('error', reject);
+    child.once('spawn', () => {
+      child.unref();
+      resolve();
+    });
+  });
+  quitting = true;
+  app.quit();
+}
+
 const { randomUUID } = require('node:crypto');
 const { Store } = require('./store.cjs');
 const { validateConfig } = require('./schema.cjs');
@@ -141,6 +214,11 @@ function commit(value) {
   }
   broadcast();
   trayMenu();
+  if (
+    previous?.settings.autoCheckUpdates !== clean.settings.autoCheckUpdates ||
+    previous?.settings.autoInstallUpdates !== clean.settings.autoInstallUpdates
+  )
+    updatePreferences();
   return store.value;
 }
 async function performLaunch(id) {
@@ -257,6 +335,18 @@ function setupIPC() {
     if (typeof active !== 'boolean') throw Error('Invalid capture state.');
     capturing = active;
     registerShortcuts(store.value);
+  });
+  handle('repository:open', () => shell.openExternal('https://github.com/vmrishi/Launcher'));
+  handle('updates:action', (action) => {
+    if (action === 'status') return updates.status();
+    if (action === 'check') return updates.check();
+    if (action === 'install') return updates.install();
+    throw Error('Invalid update action.');
+  });
+  handle('updates:token', async (token) => {
+    const result = await updates.saveToken(token);
+    updatePreferences();
+    return result;
   });
   handle('config:load', () => store.value);
   handle('config:save', commit);
@@ -408,6 +498,19 @@ else {
         app.quit();
         return;
       }
+      updates = new Updates({
+        directory: path.join(app.getPath('userData'), 'updates'),
+        version: app.getVersion(),
+        portable: !!process.env.PORTABLE_EXECUTABLE_FILE,
+        packaged: app.isPackaged,
+        platform: process.platform,
+        secure: safeStorage,
+        install: installUpdate,
+        canAutoInstall: () => settings().autoCheckUpdates && settings().autoInstallUpdates,
+      });
+      await updates.initialize();
+      const initialUpdate = setTimeout(updatePreferences, 10000);
+      initialUpdate.unref();
       main = createWindow();
       donut = createWindow(true);
       const icon = nativeImage.createFromDataURL(
@@ -422,7 +525,10 @@ else {
       trayMenu();
       setupIPC();
       try {
-        registerShortcuts({settings:{hotkey:store.value?.settings.hotkey??fallback.hotkey},entries:[]});
+        registerShortcuts({
+          settings: { hotkey: store.value?.settings.hotkey ?? fallback.hotkey },
+          entries: [],
+        });
         registerShortcuts(store.value);
       } catch (error) {
         main.show();
@@ -438,6 +544,7 @@ else {
     });
   app.on('before-quit', () => {
     quitting = true;
+    clearInterval(updateTimer);
   });
   app.on('will-quit', () => globalShortcut.unregisterAll());
   app.on('window-all-closed', () => {

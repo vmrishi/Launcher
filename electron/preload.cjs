@@ -1,6 +1,9 @@
 const { contextBridge, ipcRenderer, webUtils } = require('electron');
 contextBridge.exposeInMainWorld('launcher', {
   desktop: true,
+  updateAction: (action) => ipcRenderer.invoke('updates:action', action),
+  saveUpdateToken: (token) => ipcRenderer.invoke('updates:token', token),
+  openRepository: () => ipcRenderer.invoke('repository:open'),
   captureShortcut: (active) => ipcRenderer.invoke('shortcut:capture', active),
   clearHistory: () => ipcRenderer.invoke('history:clear'),
   load: () => ipcRenderer.invoke('config:load'),

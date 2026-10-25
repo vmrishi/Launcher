@@ -146,6 +146,9 @@ function validateConfig(value) {
     closeToTray: bool(s.closeToTray),
     autoHide: bool(s.autoHide),
     showRecent: bool(s.showRecent),
+    showProfileSelector: bool(s.showProfileSelector ?? true),
+    autoCheckUpdates: bool(s.autoCheckUpdates ?? true),
+    autoInstallUpdates: bool(s.autoInstallUpdates ?? false),
   };
   const keys = [settings.hotkey, ...entries.map((a) => a.hotkey)]
     .filter(Boolean)

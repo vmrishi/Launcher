@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { dragEntry, droppedEntry } from '../dnd';
+import { useState, useRef } from 'react';
 import { ChevronLeft, ChevronRight, Orbit } from 'lucide-react';
 import { EntryIcon } from './Icon';
 import type { Entry, Settings, Profile } from '../types';
@@ -19,6 +20,7 @@ export default function Donut({
   settings,
   onActivate,
   onDrop,
+  onRemove,
   editable = false,
   small = false,
 }: {
@@ -27,9 +29,12 @@ export default function Donut({
   settings: Settings;
   onActivate: (id: string) => void;
   onDrop?: (id: string, index: number) => void;
+  onRemove?: (id: string) => void;
   editable?: boolean;
   small?: boolean;
 }) {
+  const pointer = useRef<{ id: string; x: number; y: number; moving: boolean } | null>(null),
+    suppressClick = useRef(false);
   const [face, setFace] = useState(0),
     [hover, setHover] = useState<string | null>(null);
   const all = profile.entries
@@ -88,7 +93,42 @@ export default function Donut({
                   onMouseLeave={() => setHover(null)}
                   onFocus={() => setHover(item?.id ?? null)}
                   onBlur={() => setHover(null)}
-                  onClick={() => item && onActivate(item.id)}
+                  data-donut-index={current * settings.perFace + i}
+                  onPointerDown={(e) => {
+                    if (editable && item && e.button === 0) {
+                      pointer.current = { id: item.id, x: e.clientX, y: e.clientY, moving: false };
+                      suppressClick.current = false;
+                      e.currentTarget.setPointerCapture(e.pointerId);
+                    }
+                  }}
+                  onPointerMove={(e) => {
+                    const p = pointer.current;
+                    if (p && Math.hypot(e.clientX - p.x, e.clientY - p.y) > 6) {
+                      p.moving = true;
+                      e.currentTarget.style.cursor = 'grabbing';
+                    }
+                  }}
+                  onPointerUp={(e) => {
+                    const p = pointer.current;
+                    pointer.current = null;
+                    e.currentTarget.style.cursor = '';
+                    if (!p?.moving) return;
+                    suppressClick.current = true;
+                    const target = document.elementFromPoint(e.clientX, e.clientY);
+                    const slot = target?.closest('[data-donut-index]');
+                    if (slot) onDrop?.(p.id, Number(slot.getAttribute('data-donut-index')));
+                    else if (target?.closest('[data-orbit-palette]')) onRemove?.(p.id);
+                  }}
+                  onPointerCancel={() => {
+                    pointer.current = null;
+                  }}
+                  onClick={() => {
+                    if (suppressClick.current) {
+                      suppressClick.current = false;
+                      return;
+                    }
+                    if (item) onActivate(item.id);
+                  }}
                   onKeyDown={(e) => {
                     if (item && ['Enter', ' '].includes(e.key)) {
                       e.preventDefault();
@@ -104,13 +144,17 @@ export default function Donut({
                     }
                   }}
                   onDragOver={(e) => {
-                    if (onDrop && e.dataTransfer.types.includes('application/orbit-entry')) {
+                    if (
+                      onDrop &&
+                      (e.dataTransfer.types.includes('application/orbit-entry') ||
+                        e.dataTransfer.types.includes('text/plain'))
+                    ) {
                       e.preventDefault();
                       e.stopPropagation();
                     }
                   }}
                   onDrop={(e) => {
-                    const id = e.dataTransfer.getData('application/orbit-entry');
+                    const { id } = droppedEntry(e);
                     if (onDrop && id) {
                       e.preventDefault();
                       e.stopPropagation();
@@ -128,13 +172,12 @@ export default function Donut({
                   >
                     <div
                       className="slice-label"
-                      style={{ pointerEvents: editable ? 'auto' : 'none' }}
+                      style={{ pointerEvents: editable && item ? 'auto' : 'none' }}
                       draggable={editable && !!item}
                       onDragStart={(e) => {
                         if (item) {
-                          e.dataTransfer.setData('application/orbit-entry', item.id);
-                          e.dataTransfer.setData('application/orbit-source', 'donut');
-                          e.dataTransfer.effectAllowed = 'move';
+                          dragEntry(e, item.id, 'donut');
+                          pointer.current = null;
                         }
                       }}
                     >

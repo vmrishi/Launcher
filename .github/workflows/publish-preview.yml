@@ -16,18 +16,22 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm test
+      - run: npm run build
+      - run: npx playwright install chromium
+      - run: npm run test:ui
+      - run: npm run test:desktop
       - run: npm run dist:win
       - name: Archive source and generate checksums
         shell: bash
         run: |
           git archive --format=zip --prefix=Orbit-Launcher/ --output=release/Orbit-Launcher-Source.zip HEAD
           cd release
-          sha256sum Orbit-Launcher-1.0.1-x64-Portable.exe Orbit-Launcher-1.0.1-x64-Setup.exe Orbit-Launcher-Source.zip > SHA256SUMS.txt
+          sha256sum Orbit-Launcher-1.0.2-x64-Portable.exe Orbit-Launcher-1.0.2-x64-Setup.exe Orbit-Launcher-Source.zip > SHA256SUMS.txt
       - name: Upload and publish approved preview
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
         shell: bash
         run: |
-          gh release upload v1.0.1-preview release/Orbit-Launcher-1.0.1-x64-Portable.exe release/Orbit-Launcher-1.0.1-x64-Setup.exe release/Orbit-Launcher-Source.zip release/SHA256SUMS.txt --clobber
-          gh release edit v1.0.1-preview --draft=false --prerelease
+          gh release upload v1.0.2-preview release/Orbit-Launcher-1.0.2-x64-Portable.exe release/Orbit-Launcher-1.0.2-x64-Setup.exe release/Orbit-Launcher-Source.zip release/SHA256SUMS.txt --clobber
+          gh release edit v1.0.2-preview --draft=false --prerelease

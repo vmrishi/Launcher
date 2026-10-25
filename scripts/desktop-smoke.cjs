@@ -33,6 +33,11 @@ const { _electron } = require('@playwright/test');
     await win.getByRole('heading', { name: 'Home.', exact: true }).waitFor();
     assert.equal(await win.evaluate(() => typeof window.require), 'undefined');
     assert.equal(await win.evaluate(() => window.launcher.desktop), true);
+    const updateState = await win.evaluate(() => window.launcher.updateAction('status'));
+    assert.equal(updateState.currentVersion, '1.0.2');
+    assert.equal(updateState.tokenStored, false);
+    assert.equal('token' in updateState, false);
+
     const preferences = await application.evaluate(({ BrowserWindow }) =>
       BrowserWindow.getAllWindows().map((w) => ({
         sandbox: w.webContents.getLastWebPreferences().sandbox,
@@ -141,6 +146,16 @@ x.XFlush(d);time.sleep(.2)
     assert.ok(donut, 'Floating donut window exists');
     await donut.getByRole('button', { name: 'Launch File Explorer', exact: true }).waitFor();
     assert.equal(await donut.locator('html').getAttribute('data-theme'), 'dark');
+    let visibilityConfig = await win.evaluate(() => window.launcher.load());
+    visibilityConfig.settings.showProfileSelector = false;
+    await win.evaluate((c) => window.launcher.save(c), visibilityConfig);
+    await donut.waitForFunction(
+      () => !document.querySelector('select[aria-label="Donut profile"]'),
+    );
+    visibilityConfig.settings.showProfileSelector = true;
+    await win.evaluate((c) => window.launcher.save(c), visibilityConfig);
+    await donut.getByLabel('Donut profile').waitFor();
+
     const transparent = await donut.evaluate(() =>
       [document.documentElement, document.body, document.getElementById('root')].every(
         (el) => getComputedStyle(el).backgroundColor === 'rgba(0, 0, 0, 0)',

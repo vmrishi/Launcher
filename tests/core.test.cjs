@@ -279,10 +279,24 @@ test('old settings migrate font and slice options without losing user customizat
   assert.throws(() => validateConfig(c));
 });
 
-test('platform shortcut aliases retain the same OS registration',()=>{
- const {ShortcutManager}=require('../electron/shortcuts.cjs');let registrations=0,removals=0;
- const manager=new ShortcutManager({register:()=>{registrations++;return true;},unregister:()=>removals++},()=>{});
- manager.configure([['CommandOrControl+Shift+Space','donut']]);
- manager.configure([[process.platform==='darwin'?'Command+Shift+Space':'Ctrl+Shift+Space','donut']]);
- assert.equal(registrations,1);assert.equal(removals,0);
+test('platform shortcut aliases retain the same OS registration', () => {
+  const { ShortcutManager } = require('../electron/shortcuts.cjs');
+  let registrations = 0,
+    removals = 0;
+  const manager = new ShortcutManager(
+    {
+      register: () => {
+        registrations++;
+        return true;
+      },
+      unregister: () => removals++,
+    },
+    () => {},
+  );
+  manager.configure([['CommandOrControl+Shift+Space', 'donut']]);
+  manager.configure([
+    [process.platform === 'darwin' ? 'Command+Shift+Space' : 'Ctrl+Shift+Space', 'donut'],
+  ]);
+  assert.equal(registrations, 1);
+  assert.equal(removals, 0);
 });

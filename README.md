@@ -54,8 +54,8 @@ npm run dist:win
 
 Output in `release/`:
 
-- `Orbit-Launcher-1.0.1-x64-Setup.exe`: install/uninstall wizard, Start Menu and desktop shortcut, selectable installation folder.
-- `Orbit-Launcher-1.0.1-x64-Portable.exe`: self-extracting portable executable, no install wizard.
+- `Orbit-Launcher-1.0.2-x64-Setup.exe`: install/uninstall wizard, Start Menu and desktop shortcut, selectable installation folder.
+- `Orbit-Launcher-1.0.2-x64-Portable.exe`: self-extracting portable executable, no install wizard.
 - `win-unpacked/`: unpacked runnable application.
 
 Portable refers to deployment: **settings still live in the Windows user profile**, not beside the executable. Both editions use the same application ID and enforce a single running instance.
@@ -84,7 +84,7 @@ Desktop settings are stored at Electron's `app.getPath('userData')`, normally `%
 
 Orbit retains at most 100 launch records. Clear activity in Home, or turn off its display in General. Imported settings never automatically run targets. App launches use an argument array with `shell: false`; no shell-command field is provided. A successful launch means the OS accepted opening the target or the process emitted `spawn`; it does not prove the launched application finished initializing successfully.
 
-Limitations: no UWP/package-app enumeration, no simulated Filee Ctrl-drag system hook, no nested launch groups, no administrator-elevation toggle, no auto-updater, no signing certificate. Use a Start Menu `.lnk` for Store apps when one exists. Startup and tray behavior are Windows-specific and need validation on an actual Windows desktop before release.
+Limitations: no UWP/package-app enumeration, no simulated Filee Ctrl-drag system hook, no nested launch groups, no administrator-elevation toggle, no signing certificate. Use a Start Menu `.lnk` for Store apps when one exists. Startup and tray behavior are Windows-specific and need validation on an actual Windows desktop before release.
 
 ## Tests and validation
 
@@ -120,10 +120,22 @@ docs/                    Design analysis, validation, source references
 
 Development architecture and extension guidance: [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md). License: [MIT](LICENSE). Credits: [third-party notices](THIRD-PARTY-NOTICES.md).
 
-## Version 1.0.1 fixes
+## Version 1.0.2 fixes
 
 In Shortcuts, choose **Record keys**, press the desired combination, then **Apply**. Typed shortcuts such as `Ctrl + Alt + L` also work. Failed assignments preserve the working shortcut; unrelated theme/layout changes no longer unregister hotkeys. The tray menu remains available as an alternative.
 
 Theme → **UI text size** controls all settings text (100–160%, default 118%). **Donut font size** independently controls donut labels (12–24). Donut toolbar → **Slice corner radius** controls rounding (0–20). These options save automatically and migrate from 1.0.0 without deleting your library. The floating window now clears the HTML root, body, and app background so the desktop shows through around the donut.
 
 Quit the previous Orbit instance from its tray menu before running the new executable; the single-instance lock otherwise focuses the old running version.
+
+## Version 1.0.2: library, profiles and updates
+
+The toolbar library supports handle dragging to donut slices, rearranging the library, dragging slice backgrounds, and dropping desktop files. The check button removes an app from the active profile; the trash button deletes it from the library after confirmation and cleans up its profile/group references.
+
+Donut toolbar → **Show profile selector in launcher** hides or shows the dropdown below the floating donut. Dark mode applies to the native selector and options.
+
+About now identifies **Orbit Launcher free software for Windows. Made by VM Rishi.**, shows the software version and repository link, and provides manual update checking plus automatic-check and automatic-install toggles. Automatic checks run at startup and every six hours; automatic installs are off by default and restart the app when enabled. Installer builds use the NSIS update package; portable builds replace the original portable file after quitting and retain a `.previous` backup.
+
+**Private repository:** update access requires a fine-grained GitHub token with read-only Contents access to `vmrishi/Launcher`. Enter it under About → GitHub access. It is encrypted using system storage (Windows DPAPI), never returned to the renderer, and excluded from config exports. Public repositories can be checked without a token. Update downloads must match the release SHA-256 manifest before execution. Failed checks leave the running app unchanged. A portable helper failure is recorded beside the pending update as `pending-update.exe.error.txt` in the app's user-data `updates` folder.
+
+The source/license notices are retained in the installed package even though the old Filee About card has been removed. Native upgrade/restart behavior needs end-to-end verification with a subsequent live release; test fixtures verify the download/checksum/installer boundary without executing a real upgrade.

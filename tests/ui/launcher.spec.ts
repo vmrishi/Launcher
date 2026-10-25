@@ -274,3 +274,133 @@ test('floating donut has transparent HTML body and root surfaces', async ({ page
     ),
   ).toEqual(['rgba(0, 0, 0, 0)', 'rgba(0, 0, 0, 0)', 'rgba(0, 0, 0, 0)']);
 });
+
+test('toolbar library can reorder applications and delete an item with profile cleanup', async ({
+  page,
+}) => {
+  await page
+    .getByRole('navigation')
+    .getByRole('button', { name: 'Donut toolbar', exact: true })
+    .click();
+  await page
+    .getByRole('button', { name: 'Drag GitHub', exact: true })
+    .dragTo(page.locator('.palette-app').filter({ hasText: 'Calculator' }));
+  await expect
+    .poll(() =>
+      page.evaluate(
+        () => JSON.parse(localStorage.getItem('orbit-launcher-preview-v1')!).entries[1].name,
+      ),
+    )
+    .toBe('GitHub');
+  await page.getByRole('button', { name: 'Delete GitHub from library', exact: true }).click();
+  await page
+    .getByRole('dialog', { name: 'Delete GitHub?' })
+    .getByRole('button', { name: 'Delete', exact: true })
+    .click();
+  await expect(page.locator('.palette-app').filter({ hasText: 'GitHub' })).toHaveCount(0);
+});
+test('dragging a library handle onto a donut slice adds it to an empty profile', async ({
+  page,
+}) => {
+  await page
+    .getByRole('navigation')
+    .getByRole('button', { name: 'Donut toolbar', exact: true })
+    .click();
+  await page.getByRole('button', { name: 'New profile', exact: true }).click();
+  await page.getByLabel('Profile name').fill('Drag test');
+  await page.getByRole('button', { name: 'Save profile', exact: true }).click();
+  await page
+    .getByRole('button', { name: 'Drag Figma', exact: true })
+    .dragTo(page.locator('.donut-slice path').first(), { timeout: 5000 });
+  await expect(page.getByRole('button', { name: 'Edit Figma', exact: true })).toBeVisible();
+});
+test('profile visibility and dark dropdown follow toolbar settings across windows', async ({
+  page,
+}) => {
+  await page
+    .getByRole('navigation')
+    .getByRole('button', { name: 'Donut toolbar', exact: true })
+    .click();
+  await page.getByRole('switch', { name: 'Show profile selector in launcher' }).click();
+  await page.goto('/?donut=1');
+  await expect(page.locator('.radial-window')).toBeVisible();
+  await expect(page.getByLabel('Donut profile')).toHaveCount(0);
+  await page.goto('/');
+  await page
+    .getByRole('navigation')
+    .getByRole('button', { name: 'Donut toolbar', exact: true })
+    .click();
+  await page.getByRole('switch', { name: 'Show profile selector in launcher' }).click();
+  await page.getByRole('navigation').getByRole('button', { name: 'Theme', exact: true }).click();
+  await page.getByRole('button', { name: 'Dark', exact: true }).click();
+  await page.goto('/?donut=1');
+  await expect(page.getByLabel('Donut profile')).toBeVisible();
+  const colors = await page.getByLabel('Donut profile').evaluate((el) => {
+    const s = getComputedStyle(el),
+      o = getComputedStyle(el.querySelector('option')!);
+    return [
+      s.color,
+      s.backgroundColor,
+      o.color,
+      o.backgroundColor,
+      getComputedStyle(document.documentElement).colorScheme,
+    ];
+  });
+  expect(colors[0]).not.toBe(colors[1]);
+  expect(colors[2]).not.toBe(colors[3]);
+  expect(colors[4]).toBe('dark');
+});
+test('About shows VM Rishi branding, version, repository and persistent update toggles', async ({
+  page,
+}) => {
+  await page.getByRole('navigation').getByRole('button', { name: 'About', exact: true }).click();
+  await expect(
+    page.getByRole('heading', {
+      name: 'Orbit Launcher free software for Windows. Made by VM Rishi.',
+    }),
+  ).toBeVisible();
+  await expect(page.getByText('Inspired by Filee. Built for launching.')).toHaveCount(0);
+  await expect(
+    page.getByRole('button', { name: 'https://github.com/vmrishi/Launcher' }),
+  ).toBeVisible();
+  await page.getByRole('switch', { name: 'Check for updates automatically', exact: true }).click();
+  await page.getByRole('switch', { name: 'Install updates automatically', exact: true }).click();
+  await page.reload();
+  await page.getByRole('navigation').getByRole('button', { name: 'About', exact: true }).click();
+  await expect(
+    page.getByRole('switch', { name: 'Check for updates automatically', exact: true }),
+  ).toHaveAttribute('aria-checked', 'false');
+  await expect(
+    page.getByRole('switch', { name: 'Install updates automatically', exact: true }),
+  ).toHaveAttribute('aria-checked', 'true');
+  await page.getByRole('button', { name: 'Check for updates now' }).click();
+  await expect(page.getByRole('status')).toContainText('Windows desktop app');
+});
+
+test('donut slice background supports pointer dragging beyond its label', async ({ page }) => {
+  await page
+    .getByRole('navigation')
+    .getByRole('button', { name: 'Donut toolbar', exact: true })
+    .click();
+  const svg = page.locator('.donut-preview svg.donut'),
+    box = (await svg.boundingBox())!;
+  const point = (x: number, y: number) => ({
+    x: box.x + (x * box.width) / 440,
+    y: box.y + (y * box.height) / 440,
+  });
+  const a = point(220, 30),
+    b = point(410, 220);
+  await page.mouse.move(a.x, a.y);
+  await page.mouse.down();
+  await page.mouse.move(b.x, b.y, { steps: 12 });
+  await page.mouse.up();
+  await expect
+    .poll(() =>
+      page.evaluate(() => {
+        const c = JSON.parse(localStorage.getItem('orbit-launcher-preview-v1')!);
+        return c.entries.find((a: { id: string }) => a.id === c.profiles[0].entries[2]).name;
+      }),
+    )
+    .toBe('File Explorer');
+  await expect(page.getByRole('dialog')).toHaveCount(0);
+});

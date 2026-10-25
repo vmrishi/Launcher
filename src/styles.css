@@ -2916,3 +2916,38 @@ html.radial-root #root {
 .center-label > span {
   font-size: calc(var(--donut-font-size, 16px) * 0.75);
 }
+
+:root {
+  color-scheme: light;
+}
+:root[data-theme='dark'] {
+  color-scheme: dark;
+}
+select,
+select option {
+  background-color: var(--surface);
+  color: var(--text);
+}
+.radial-actions select {
+  background-color: var(--surface);
+  color: var(--text);
+}
+.palette-app .drag-handle {
+  cursor: grab;
+}
+.palette-app .drag-handle:active {
+  cursor: grabbing;
+}
+.palette-footer {
+  line-height: 1.6;
+  text-align: center;
+  white-space: normal;
+}
+.update-status {
+  margin: 14px 0;
+  font-size: 12px;
+  line-height: 1.7;
+}
+.update-token {
+  margin-top: 18px;
+}

@@ -14,7 +14,15 @@ export async function load(): Promise<Config> {
     const raw = localStorage.getItem(key);
     if (raw) {
       const c = JSON.parse(raw);
-      c.settings = { uiFontScale: 118, donutFontSize: 16, sliceRadius: 0, ...c.settings };
+      c.settings = {
+        showProfileSelector: true,
+        autoCheckUpdates: true,
+        autoInstallUpdates: false,
+        uiFontScale: 118,
+        donutFontSize: 16,
+        sliceRadius: 0,
+        ...c.settings,
+      };
       return c;
     }
   } catch {

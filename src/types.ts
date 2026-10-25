@@ -40,6 +40,9 @@ export interface Settings {
   closeToTray: boolean;
   autoHide: boolean;
   showRecent: boolean;
+  showProfileSelector: boolean;
+  autoCheckUpdates: boolean;
+  autoInstallUpdates: boolean;
 }
 export interface LaunchRecord {
   id: string;
@@ -70,6 +73,9 @@ export interface Discovery {
 }
 export interface DesktopAPI {
   desktop: true;
+  updateAction(action: 'status' | 'check' | 'install'): Promise<UpdateStatus>;
+  saveUpdateToken(token: string): Promise<UpdateStatus>;
+  openRepository(): Promise<void>;
   captureShortcut(active: boolean): Promise<void>;
   clearHistory(): Promise<void>;
   load(): Promise<Config>;
@@ -92,4 +98,12 @@ declare global {
   interface Window {
     launcher?: DesktopAPI;
   }
+}
+
+export interface UpdateStatus {
+  state: 'idle' | 'checking' | 'available' | 'downloading' | 'ready' | 'current' | 'error';
+  message: string;
+  version?: string;
+  tokenStored: boolean;
+  currentVersion: string;
 }

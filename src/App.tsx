@@ -1,3 +1,5 @@
+import { dragEntry, droppedEntry } from './dnd';
+import UpdatePanel from './components/UpdatePanel';
 import ShortcutField from './components/ShortcutField';
 import { useEffect, useRef, useState } from 'react';
 import {
@@ -353,7 +355,7 @@ export default function App() {
   async function dropFiles(e: React.DragEvent) {
     e.preventDefault();
     setDropOver(false);
-    const internal = e.dataTransfer.getData('application/orbit-entry');
+    const { id: internal } = droppedEntry(e);
     if (internal) {
       arrange(internal);
       return;
@@ -394,9 +396,7 @@ export default function App() {
     }
   }
   function drag(e: React.DragEvent, id: string, source = 'library') {
-    e.dataTransfer.setData('application/orbit-entry', id);
-    e.dataTransfer.setData('application/orbit-source', source);
-    e.dataTransfer.effectAllowed = 'copyMove';
+    dragEntry(e, id, source);
   }
   function profileActions(kind: 'duplicate' | 'delete') {
     if (kind === 'duplicate') {
@@ -476,17 +476,19 @@ export default function App() {
           >
             <Settings size={17} />
           </button>
-          <select
-            aria-label="Donut profile"
-            value={profile.id}
-            onChange={(e) => activateProfile(e.target.value)}
-          >
-            {config.profiles.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.name}
-              </option>
-            ))}
-          </select>
+          {config.settings.showProfileSelector && (
+            <select
+              aria-label="Donut profile"
+              value={profile.id}
+              onChange={(e) => activateProfile(e.target.value)}
+            >
+              {config.profiles.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.name}
+                </option>
+              ))}
+            </select>
+          )}
           <button
             className="icon-button"
             aria-label="Close donut"
@@ -550,7 +552,7 @@ export default function App() {
             <ArrowUpRight size={15} />
           </button>
           <div className="version">
-            <span>Orbit v1.0.1</span>
+            <span>Orbit v1.0.2</span>
             <span>Made for your desktop</span>
           </div>
         </div>
@@ -1046,6 +1048,7 @@ export default function App() {
                         setDropOver(false);
                         arrange(id, index);
                       }}
+                      onRemove={removeFromDonut}
                       editable
                     />
                     <p>
@@ -1055,6 +1058,12 @@ export default function App() {
                   </div>
                   <div className="card appearance-card">
                     <h3>Donut appearance</h3>
+                    <Toggle
+                      label="Show profile selector in launcher"
+                      description="Show or hide the profile dropdown below the floating donut."
+                      checked={config.settings.showProfileSelector}
+                      onChange={(showProfileSelector) => setting({ showProfileSelector })}
+                    />
                     <Range
                       label="Donut font size"
                       min={12}
@@ -1165,16 +1174,18 @@ export default function App() {
                   </div>
                   <div
                     className="card palette"
+                    data-orbit-palette="true"
                     onDragOver={(e) => {
-                      if (e.dataTransfer.types.includes('application/orbit-entry'))
-                        e.preventDefault();
+                      e.preventDefault();
+                      e.dataTransfer.dropEffect = 'copy';
                     }}
                     onDrop={(e) => {
-                      const id = e.dataTransfer.getData('application/orbit-entry');
-                      if (id && e.dataTransfer.getData('application/orbit-source') === 'donut') {
-                        e.preventDefault();
-                        removeFromDonut(id);
-                      }
+                      e.preventDefault();
+                      e.stopPropagation();
+                      const { id, source } = droppedEntry(e);
+                      if (id) {
+                        if (source === 'donut') removeFromDonut(id);
+                      } else void dropFiles(e);
                     }}
                   >
                     {config.entries
@@ -1184,11 +1195,58 @@ export default function App() {
                           key={a.id}
                           className={`palette-app ${profile.entries.includes(a.id) ? 'in-donut' : ''}`}
                           draggable
-                          onDragStart={(e) => drag(e, a.id)}
+                          onDragStart={(e) => {
+                            if ((e.target as Element).closest('button:not(.drag-handle)')) {
+                              e.preventDefault();
+                              return;
+                            }
+                            drag(e, a.id);
+                          }}
+                          onDragOver={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                          }}
+                          onDrop={(e) => {
+                            const { id, source } = droppedEntry(e);
+                            if (!id) return;
+                            e.preventDefault();
+                            e.stopPropagation();
+                            if (source === 'donut') {
+                              removeFromDonut(id);
+                              return;
+                            }
+                            update((c) => {
+                              const list = [...c.entries];
+                              const from = list.findIndex((x) => x.id === id),
+                                to = list.findIndex((x) => x.id === a.id);
+                              if (from < 0 || to < 0) return c;
+                              const [moved] = list.splice(from, 1);
+                              list.splice(to, 0, moved);
+                              return { ...c, entries: list };
+                            });
+                          }}
                         >
-                          <GripVertical size={13} />
+                          <button
+                            className="icon-button drag-handle"
+                            draggable
+                            aria-label={`Drag ${a.name}`}
+                            onDragStart={(e) => {
+                              e.stopPropagation();
+                              drag(e, a.id);
+                            }}
+                          >
+                            <GripVertical size={13} />
+                          </button>
                           <EntryIcon entry={a} size={19} />
                           <span>{a.name}</span>
+                          <button
+                            className="icon-button"
+                            aria-label={`Delete ${a.name} from library`}
+                            title="Delete from library"
+                            onClick={() => deleteEntry(a)}
+                          >
+                            <Trash2 size={14} />
+                          </button>
                           <button
                             className="icon-button"
                             aria-label={`${profile.entries.includes(a.id) ? 'Remove' : 'Add'} ${a.name} ${profile.entries.includes(a.id) ? 'from' : 'to'} donut`}
@@ -1211,7 +1269,7 @@ export default function App() {
                   </div>
                   <div className="palette-footer">
                     <span className="online-dot" />
-                    Changes save automatically
+                    Check removes from this profile. Trash deletes from library.
                   </div>
                 </section>
               </div>
@@ -1729,44 +1787,28 @@ export default function App() {
                   <br />
                   and everyday routines together in one customizable donut.
                 </p>
-                <span className="pill">Version 1.0.1 · Windows 10 / 11 · x64</span>
+                <span className="pill">Version 1.0.2 · Windows 10 / 11 · x64</span>
               </div>
               <div className="card settings-card">
-                <h2>Inspired by Filee. Built for launching.</h2>
-                <p className="card-description">
-                  Filee by KnifeLemon makes file conversion feel effortless. Orbit adapts its
-                  MIT-licensed soft palette, settings layout, and radial editor into a dedicated
-                  application launcher, using Electron and React.
-                </p>
-                <p className="card-description">
-                  This is an independent project. It is not an official Filee release. The original
-                  Filee license and source references are included with this application.
-                </p>
-                <div className="button-row">
-                  <button
-                    className="button secondary"
-                    onClick={() => {
-                      if (window.launcher)
-                        notify(
-                          'Filee source: https://github.com/KnifeLemon/Filee — see the included third-party notices.',
-                        );
-                      else
-                        window.open(
-                          'https://github.com/KnifeLemon/Filee',
-                          '_blank',
-                          'noopener,noreferrer',
-                        );
-                    }}
-                  >
-                    <ExternalLink size={15} />
-                    Filee on GitHub
-                  </button>
-                  <button className="button secondary" onClick={() => setPage('general')}>
-                    <Settings size={15} />
-                    Make it yours
-                  </button>
-                </div>
+                <h2>Orbit Launcher free software for Windows. Made by VM Rishi.</h2>
+                <p className="card-description">Version 1.0.2 · Windows 10 / 11 · x64</p>
+                <button
+                  className="button secondary"
+                  onClick={() => {
+                    if (window.launcher) void window.launcher.openRepository();
+                    else
+                      window.open(
+                        'https://github.com/vmrishi/Launcher',
+                        '_blank',
+                        'noopener,noreferrer',
+                      );
+                  }}
+                >
+                  <ExternalLink size={15} />
+                  https://github.com/vmrishi/Launcher
+                </button>
               </div>
+              <UpdatePanel settings={config.settings} onChange={setting} />
               <div className="about-features">
                 <span>
                   <CheckCircle2 size={16} />

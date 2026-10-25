@@ -1,9 +1,9 @@
 {
   "name": "orbit-launcher",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "private": true,
-  "description": "A customizable Windows donut launcher inspired by Filee",
-  "author": "Launcher contributors",
+  "description": "Orbit Launcher free software for Windows. Made by VM Rishi.",
+  "author": "VM Rishi",
   "license": "MIT",
   "main": "electron/main.cjs",
   "scripts": {

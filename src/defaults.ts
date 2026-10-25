@@ -82,6 +82,9 @@ export function defaults(): Config {
       closeToTray: true,
       autoHide: true,
       showRecent: true,
+      showProfileSelector: true,
+      autoCheckUpdates: true,
+      autoInstallUpdates: false,
     },
     history: [],
   };
